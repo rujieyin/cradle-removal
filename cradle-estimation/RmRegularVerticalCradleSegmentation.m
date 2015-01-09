@@ -66,15 +66,11 @@ for i = 1:size(subimgind,1)
     elseif isfield(opt,'edgecut') && opt.edgecut
         if isfield(opt,'smoothbd') && opt.smoothbd 
             tmpopt.edgeloc = arrayfun(@(x)tmpimginfo{x}.verest,1:length(tmpimginfo),'UniformOutput',0);
-%        else
-%             tmphorest = arrayfun(@(x)tmpimginfo{x}.verest(:),1:length(tmpimginfo),'UniformOutput',0);
-%             tmphorest = cell2mat(tmphorest(:));
         end
     end
     
     % redo the estimation of vertical location for subimages to improve accuracy
     tmphorest = cradledetect(tmpimg,length(verest)/2,[1,size(tmpimg,2)],0,[1,size(tmpimg,1)],opt);
-    
     tmpverest = [ 1; size(tmpimg,1)-min(tmpopt.downcutind); size(tmpimg,1)-max(tmpopt.upcutind);size(tmpimg,1)];
     
     % ==== RmHorizontalCradle ====%
