@@ -1,0 +1,14 @@
+i = 4;
+j = 4;
+opt = struct();
+opt.direction = 'vertical';
+img = texture19a{i,j};
+opt.imgsize = size(img);
+opt.curveletisreal = 1;
+cw = fdct_wrapping(img,opt.curveletisreal,1,7);
+mask = ones(opt.imgsize);
+[cwnew,imgnew,opt] = angleselection2(cw,mask,opt);
+opt.mask_h = blockmask{i,j}.h;
+opt.mask_v = blockmask{i,j}.v;
+[feature,opt] = getCWfeature(cwnew,opt);
+% [region,distscore,trans] = featuresimilarityregion(feature,opt,img);
