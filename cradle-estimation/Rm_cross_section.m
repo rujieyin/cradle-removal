@@ -24,7 +24,7 @@ if strcmp(model,'additive') && size(vinfo,1) > 1
     vinfo = connect_vinfo(vinfo);
 end
 
-nv = length(vinfo);
+nv = size(vinfo,2);%length(vinfo);
 nh = length(hinfo);
 crossinfo = cell(nh,nv);
 imgnew = img;
@@ -142,9 +142,10 @@ for ih = 1 : nh
         % obtain the rectangular ring outside the boundary, if
         % there is a slot, then the slot region is discarded
         bdout = zeros(size(subimg));
-        vs = min([opt.vs, bdcolind(1)+1, size(subimg,2)-bdcolind(2)]);
+        vs = min([opt.vs, bdcolind(1)-1, size(subimg,2)-bdcolind(2)]);
         if isfield(info,'cutind')
             bdout([1:info.cutind(1) info.cutind(2):end],bdcolind(1)-vs:bdcolind(2)+vs) = 1;
+            info.cutwidth = max(abs(bdrowind-info.cutind));
         else
             bdout([1:bdrowind(1) bdrowind(2):end],bdcolind(1)-vs:bdcolind(2)+vs) = 1;
         end

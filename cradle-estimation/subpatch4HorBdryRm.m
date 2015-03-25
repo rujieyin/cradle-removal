@@ -5,7 +5,7 @@ function [subimg,subind] = subpatch4HorBdryRm(img,hinfo,vinfo)
 % Input: vinfo:    connected vertical segmentation info
 
 nh = length(hinfo);
-L = 512; % subimg size
+L = min(512,min(size(img))); % subimg size
 D = 400; % biggest gap b/t upper and lower cut
 
 if isfield(vinfo{1},'upcutind')

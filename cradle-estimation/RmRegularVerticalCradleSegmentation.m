@@ -71,16 +71,34 @@ for i = 1:size(subimgind,1)
     
     % redo the estimation of vertical location for subimages to improve accuracy
     tmphorest = cradledetect(tmpimg,length(verest)/2,[1,size(tmpimg,2)],0,[1,size(tmpimg,1)],opt);
+    if isfield(tmpopt,'downcutind')
     tmpverest = [ 1; size(tmpimg,1)-min(tmpopt.downcutind); size(tmpimg,1)-max(tmpopt.upcutind);size(tmpimg,1)];
+    else % add by Rachel March 13,2015, changed March 24,2015
+        try
+            downcutind =  (hinfo{i}.lp(1) + hinfo{i}.rp(1))/2 - subimgind(i,1);
+        catch
+            downcutind = size(tmpimg,1) - 1;
+        end
+        try
+            upcutind = (hinfo{i-1}.dp(1) + hinfo{i-1}.rp(1))/2 - subimgind(i,1);
+        catch
+            upcutind = 1;
+        end
+        tmpverest = [1; size(tmpimg,1)-downcutind; size(tmpimg,1)-upcutind;size(tmpimg,1)];
+    end
     
     % ==== RmHorizontalCradle ====%
     [tmpimgnew,tmpinfo] = RmHorizontalCradle(rot90(tmpimg,-1),tmphorest,tmpverest,tmpopt);
    
-    if isfield(opt,'edgecut') && opt.edgecut
-        for ii = 1:length(tmpinfo)
+    % changed by Rachel on Mar 24,2015
+    for ii = 1:length(tmpinfo)
+        if isfield(opt,'edgecut') && opt.edgecut
             
             tmpinfo{ii}.upcutind = tmpopt.upcutind(ii);
             tmpinfo{ii}.downcutind = tmpopt.downcutind(ii);
+        else
+            tmpinfo{ii}.upcutind = upcutind;
+            tmpinfo{ii}.downcutind = downcutind;
         end
     end
     info(i,:) = globalind(tmpinfo(:)',[subimgind(i,1),1],size(tmpimg));

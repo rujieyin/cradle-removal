@@ -26,9 +26,6 @@ end
 angle = angle/180*pi;
 
 %% find the boundary segments for estimation
-
-% width of boundary neighbourhood
-width = 30;
 % length of cradle
 len = size(img,2);
 
@@ -36,6 +33,12 @@ len = size(img,2);
 x = (1:len) - ceil(len/2);% column
 y1 = midpoint(1) + round(cos(angle)*x);% row
 y2 = midpoint(2) + y1 - midpoint(1);% row
+
+% width of boundary neighbourhood, doesn't exceed 1/4 of cradle width
+width = min([30, y1(1)-1, y1(end)-1,...
+    size(img,1)-y2(end), size(img,1)-y2(1),...
+    (y2(1)-y1(1))/4, (y2(end)-y1(end))/4]);
+width = round(width);
 
 info = struct();
 info.lp = y1(1);
@@ -45,7 +48,7 @@ info.rd = y2(end);
 
 %available segments
 verest = reshape(verest,2,[]);
-nv = size(verest,1); % number of vertical cradles
+nv = size(verest,2); % number of vertical cradles
 if nv > 0
     seg = cell(1,nv+1);
     seg{1} = [1 : verest(1)-1];%1:lenseg:(verest(1)-lenseg);%
@@ -62,7 +65,7 @@ dataseg = @(d)cellfun(@(x)d(:,x),seg,'UniformOutput',0);
 %% compute the average of inside/outside boundary value
 
 % length of segments
-lenseg = 40;
+lenseg = 20;
 
 % boundary slices
 img_out1 = @(x,s)img((y1(x)-s):(y1(x)-1),x);
@@ -141,8 +144,11 @@ end
 
 switch estimation
     case 'edge'
-        
-        p1profile = [1./C0profile1;p(1)*ones(midpoint(2)-midpoint(1)-width*2-1,1);1./C0profile2];        
+
+        p1profile = [1./C0profile1;...
+            linspace(1/C0profile1(end), 1/C0profile2(1),midpoint(2)-midpoint(1)-width*2-1)';...
+            1./C0profile2];% changed by Rachel Mar 24th, 2014, use linear interpolation
+%         p1profile = [1./C0profile1;p(1)*ones(midpoint(2)-midpoint(1)-width*2-1,1);1./C0profile2];        
         
     case 'section'
         %% estimate the profile of full cross-section

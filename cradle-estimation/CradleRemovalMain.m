@@ -42,7 +42,7 @@ opt.edgecut = 1; % whether use horizontal cut to estimate the location of vertic
 % [I, info] = RmFullVerticalCradleSegmentation(imgnew, Iflag, verest,horest,hinfo,opt);
 opt.crossmodel = 'profilefit';% 'linearfit' if the crosssection is free of panel content
 [Inew,crossinfo] = Rm_cross_section(I,hinfo,vinfo,opt);
-
+Inew = Inew.*(Inew > 0);
 % %==============================================================================================%
 %     
 % opt.Vangle = []; % set the angle of each whole vertical cradling according to vinfo{i,j}.angle

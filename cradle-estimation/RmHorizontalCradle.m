@@ -97,7 +97,7 @@ for i = 1 : nh
         end
         [imgnewtmp,infotmp] = rm_single_cradle(imgtmp.*mask,horest(2*i-1:2*i)-initialind + 1,vmask,s,prefix);
     else
-        s = opt.s*2;
+        s = opt.s*4;% changed by Rachel, March 13, 
         [imgnewtmp,infotmp] = rm_single_cradle(imgtmp.*mask,horest(2*i-1:2*i)-initialind + 1,vmask,s);
     end
     %     figure;subplot(2,1,1);imshow(imgtmp,[]);subplot(2,1,2);imshow(imgnewtmp,[]);
