@@ -6,6 +6,10 @@ if ~isfield(opt,'cornerind')
     opt.cornerind = 'full'; % whether ind of corners in both cords are saved
 end
 
+if ~isfield(opt,'display')
+    opt.display = 0;
+end
+
 vmask = ones(1,size(img,2));
 for i = 1:length(verest)/2
     vmask(verest(2*i-1):verest(2*i)) = 0;
@@ -35,13 +39,44 @@ for i = 1 : nh
     end
     mask = ones(size(imgtmp));
     if isfield(opt,'leftmaskloc')
-        for j = 1:size(opt.leftmaskloc{i},1)
+        maxj = find(opt.leftmaskloc{i}(:,2) == initialind + size(imgtmp,1)-1);
+        % truncate oversize maskloc
+        if isempty(maxj)
+            maxj = size(opt.leftmaskloc{i},1);
+        else
+            maxj = min(maxj,size(opt.leftmaskloc{i},1));
+        end
+        for j = 1:maxj
             mask(opt.leftmaskloc{i}(j,2) - initialind + 1,1:opt.leftmaskloc{i}(j,1)) = 0;
+        end
+        if isfield(opt,'smoothmaskbd') && opt.smoothmaskbd
+            sm = min(12,min(opt.leftmaskloc{i}(:,1)));
+            if sm >= 4
+                bdprofile = cdf('normal',1:sm,sm/2,sm/6);
+                for j = 1:maxj
+                    mask(opt.leftmaskloc{i}(j,2) - initialind + 1,(opt.leftmaskloc{i}(j,1)-sm/2+1):(opt.leftmaskloc{i}(j,1)+sm/2)) = bdprofile;
+                end
+            end
         end
     end
     if isfield(opt,'rightmaskloc')
-        for j = 1:size(opt.rightmaskloc{i},1)
+        maxj = find(opt.rightmaskloc{i}(:,2) == initialind + size(imgtmp,1)-1);
+        if isempty(maxj)
+            maxj = size(opt.rightmaskloc{i},1);
+        else
+            maxj = min(maxj,size(opt.rightmaskloc{i},1));
+        end
+        for j = 1:maxj
             mask(opt.rightmaskloc{i}(j,2) - initialind + 1,opt.rightmaskloc{i}(j):end) = 0;
+        end
+        if isfield(opt,'smoothmaskbd') && opt.smoothmaskbd
+            sm = min(12,size(imgtmp,2)-max(opt.rightmaskloc{i}(:,1)));
+            if sm >= 4
+                bdprofile = 1-cdf('normal',1:sm,sm/2,sm/6);
+                for j = 1:maxj
+                    mask(opt.rightmaskloc{i}(j,2) - initialind + 1,(opt.rightmaskloc{i}(j,1)-sm/2):(opt.rightmaskloc{i}(j,1)+sm/2-1)) = bdprofile;
+                end
+            end
         end
     end
     if isfield(opt,'edgeloc') || isfield(opt, 'angle') || isfield(opt,'HdI')
@@ -62,7 +97,7 @@ for i = 1 : nh
         end
         [imgnewtmp,infotmp] = rm_single_cradle(imgtmp.*mask,horest(2*i-1:2*i)-initialind + 1,vmask,s,prefix);
     else
-        s = opt.s*2;
+        s = opt.s*4;% changed by Rachel, March 13, 
         [imgnewtmp,infotmp] = rm_single_cradle(imgtmp.*mask,horest(2*i-1:2*i)-initialind + 1,vmask,s);
     end
     %     figure;subplot(2,1,1);imshow(imgtmp,[]);subplot(2,1,2);imshow(imgnewtmp,[]);
@@ -96,10 +131,27 @@ end
 
     function [imgnew,info] = rm_single_cradle(img,loc,vmask,s,prefix)
         
+        if isfield(opt,'model')
+            model = opt.model;
+        else
+            model = 'multiplicative';
+        end
+        
         if nargin > 4 && isfield(prefix,'edgeloc')
             loc = prefix.edgeloc;
         end
         s = min([(loc(1) - 1)/2,(size(img,1) - loc(2))/2, s]);
+        border = [0,0];
+        if loc(1) == 1
+            s = min((size(img,1)-loc(2))/2,s);
+            img = [zeros(2*s,size(img,2));img];
+            loc = loc + 2*s;
+            border = [1,0];
+        elseif size(img,1) == loc(2)
+            s = min((loc(1)-1)/2,s);
+            img = [img;zeros(2*s,size(img,2))];
+            border = [0,1];
+        end
         s = round(s);
         if nargin > 4 && isfield(prefix,'angle')
             theta = prefix.angle;
@@ -138,46 +190,70 @@ end
         %     figure;imshow(subimg,[]);
         [R1,xp1] = radon(subimg,angle);
         %     figure;plot(1:length(R1),R1);
-        [edgeshape1,dI1] = get_edges(R1,xp1,angle,'first',s);
-        %     figure;plot(1:(2*s-1),R(abs(xp) < s)' - edgeshape*dI);
-        subimg = img(ind2-s:ind2+s,:);
-        subimg = bsxfun(@times,subimg,vmask);
-        [R2,xp2] = radon(subimg,angle);
-        %         figure;plot(1:length(R2),R2);
-        [edgeshape2,dI2] = get_edges(R2,xp2,angle,'second',s);
-        dI = (dI1 + dI2)/2;
-        deltaIntense = size(img,2)/sum(vmask);
-        %         figure;plot(1:length(R1),R1 - edgeshape1*dI1,1:length(R1),R1);
-        %         figure;plot(1:length(R2),R2 - edgeshape2*dI2,1:length(R2),R2);
-        bound1 = BackProjection(edgeshape1*deltaIntense/dI1*dI,xp1,angle,[size(subimg,1)*3,size(subimg,2)]);
-        % enlarge the size of back projection image to exclude artifacts
-        bound1 = bound1((size(subimg,1)+1):size(subimg,1)*2,:);
-        bound2 = BackProjection(edgeshape2*deltaIntense/dI2*dI,xp2,angle,[size(subimg,1)*3,size(subimg,2)]);
-        bound2 = bound2((size(subimg,1)+1):size(subimg,1)*2,:);
-        cradleimg = zeros(size(img));
-        cradleimg(ind1-s:ind1+s,:) = bound1;
-        cradleimg(ind2-s:ind2+s,:) = bound2;
-        tmpimg = arrayfun(@(x)full_bar(cradleimg(ind1-s:ind2+s,x)),1:size(img,2),'UniformOutput',0);
-        tmpimg = cell2mat(tmpimg(:)');
-        th = max(cradleimg(:))/3;
-        info = struct();
-        info.lp = find(cradleimg(:,1)>th,1,'first');
-        info.ld = find(cradleimg(:,1)>th,1,'last');
-        info.rp = find(cradleimg(:,end) > th, 1,'first');
-        info.rd = find(cradleimg(:,end) > th, 1, 'last');
-        if nargin > 4 && isfield(prefix,'dI')
-            tmpimg = tmpimg/max(tmpimg(:))*prefix.dI;
+        switch model
+            case 'additive'
+                [edgeshape1,dI1] = get_edges(R1,xp1,angle,'first',s);%================estimate intensity differenc===============%
+                %     figure;plot(1:(2*s-1),R(abs(xp) < s)' - edgeshape*dI);
+                subimg = img(ind2-s:ind2+s,:);
+                subimg = bsxfun(@times,subimg,vmask);
+                [R2,xp2] = radon(subimg,angle);
+                %         figure;plot(1:length(R2),R2);
+                [edgeshape2,dI2] = get_edges(R2,xp2,angle,'second',s);
+                dI = (dI1 + dI2)/2;
+                deltaIntense = size(img,2)/sum(vmask);
+                %         figure;plot(1:length(R1),R1 - edgeshape1*dI1,1:length(R1),R1);
+                %         figure;plot(1:length(R2),R2 - edgeshape2*dI2,1:length(R2),R2);
+                bound1 = BackProjection(edgeshape1*deltaIntense/dI1*dI,xp1,angle,[size(subimg,1)*3,size(subimg,2)]);
+                % enlarge the size of back projection image to exclude artifacts
+                bound1 = bound1((size(subimg,1)+1):size(subimg,1)*2,:);
+                bound2 = BackProjection(edgeshape2*deltaIntense/dI2*dI,xp2,angle,[size(subimg,1)*3,size(subimg,2)]);
+                bound2 = bound2((size(subimg,1)+1):size(subimg,1)*2,:);
+                cradleimg = zeros(size(img));
+                cradleimg(ind1-s:ind1+s,:) = bound1;
+                cradleimg(ind2-s:ind2+s,:) = bound2;
+                tmpimg = arrayfun(@(x)full_bar(cradleimg(ind1-s:ind2+s,x)),1:size(img,2),'UniformOutput',0);
+                tmpimg = cell2mat(tmpimg(:)');
+                th = max(cradleimg(:))/3;
+                info = struct();
+                info.lp = find(cradleimg(:,1)>th,1,'first');
+                info.ld = find(cradleimg(:,1)>th,1,'last');
+                info.rp = find(cradleimg(:,end) > th, 1,'first');
+                info.rd = find(cradleimg(:,end) > th, 1, 'last');
+                if nargin > 4 && isfield(prefix,'dI')
+                    tmpimg = tmpimg/max(tmpimg(:))*prefix.dI;
+                end
+                cradleimg(ind1 - s:ind2+s,:) = tmpimg;
+                
+                %         cradleimg(ind1-s:ind1+s,:) = apply_cradlemask(img(ind1-s:ind1+s,:),tmpimg(1:2*s+1,:));
+                %         cradleimg(ind2-s:ind2+s,:) = apply_cradlemask(img(ind2-s:ind2+s,:),tmpimg(end-2*s:end,:));
+                
+                %         cradleimg(ind1-s:ind2+s,:) = apply_cradlemask(img(ind1-s:ind2+s,:),tmpimg);
+                
+                %         figure;imshow(cradleimg,[]);
+                imgnew = img-cradleimg;
+                
+                if border(1) == 1
+                    imgnew = imgnew(2*s+1:end,:);
+                    cradleimg = cradleimg(2*s+1:end,:);
+                end
+                if border(2) == 1
+                    imgnew = imgnew(1:end-2*s,:);
+                    cradleimg = cradleimg(1:end-2*s,:);
+                end
+                
+                if opt.display
+                    figure;imshow([imgnew; img],[]);title('Additive Model');
+                end
+            case 'multiplicative'
+                if isfield(opt,'profile_estimation')
+                    estimation = opt.profile_estimation;
+                else
+                    estimation = 'edge';
+                end
+                [imgnew,info] = cradle_attenuation_fitting(img, loc ,angle, verest, estimation);
+                figure;imshow([imgnew; img],[]);title('Multiplicative Model');
+                cradleimg = img - imgnew;
         end
-        cradleimg(ind1 - s:ind2+s,:) = tmpimg;
-        
-%         cradleimg(ind1-s:ind1+s,:) = apply_cradlemask(img(ind1-s:ind1+s,:),tmpimg(1:2*s+1,:));
-%         cradleimg(ind2-s:ind2+s,:) = apply_cradlemask(img(ind2-s:ind2+s,:),tmpimg(end-2*s:end,:));
-        
-%         cradleimg(ind1-s:ind2+s,:) = apply_cradlemask(img(ind1-s:ind2+s,:),tmpimg);
-        
-        %         figure;imshow(cradleimg,[]);
-        imgnew = img-cradleimg;
-        figure;imshow([imgnew; img],[]);
         
         info.cradleimg = cradleimg;
         info.angle = angle;

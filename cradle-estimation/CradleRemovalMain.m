@@ -21,6 +21,8 @@ opt.smoothbd = 0; % indicate if the boundary is smooth (noisy)
 % step 3: remove all horizontal cradles
 % [imgnew,~,hinfo,hangle] = RmFullHorizontalCradles(img,horest,verest,opt);
 % opt.HdI = ;
+opt.model = 'multiplicative'; % 'additive'
+opt.profile_estimation = 'section'; % 'edge' for edge profile estimation only
 [imgnew,hinfo] = RmHorizontalCradle(img,horest,verest,opt);
 % step 4: remove all vertical cradles
 Iflag = [ 0, 0]; % indicate whether the very left or right cradle is adjacent to zero background
@@ -34,12 +36,13 @@ opt.edgecut = 1; % whether use horizontal cut to estimate the location of vertic
 % % ******* using multiplicative attenuation model **********%
 % i1 = 1; j1 = 3; % cradle to be reprocessed
 % i2 = 2; j2 = 3; % cradle whose profile to be used
-% [~,~,I] = PostRmCradleProfile(imgnew,vinfo,i1,j1,i2,j2,I);
+% [~,vinfo,I] = PostRmCradleProfile(imgnew,vinfo,i1,j1,i2,j2,I);
 % % ========================================================================%
-vinfonew = connect_vinfo(vinfo);
+% % vinfonew = connect_vinfo(vinfo);% don't use for multiplicative model!
 % [I, info] = RmFullVerticalCradleSegmentation(imgnew, Iflag, verest,horest,hinfo,opt);
-[Inew,crossinfo] = Rm_cross_section(I,hinfo,vinfonew);
-
+opt.crossmodel = 'profilefit';% 'linearfit' if the crosssection is free of panel content
+[Inew,crossinfo] = Rm_cross_section(I,hinfo,vinfo,opt);
+Inew = Inew.*(Inew > 0);
 % %==============================================================================================%
 %     
 % opt.Vangle = []; % set the angle of each whole vertical cradling according to vinfo{i,j}.angle
